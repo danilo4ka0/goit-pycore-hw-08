@@ -1,5 +1,6 @@
-import pickle
 from datetime import datetime, timedelta
+import pickle
+
 
 class Field:
     def __init__(self, value):
@@ -76,22 +77,40 @@ class AddressBook(dict):
                 upcoming_birthdays.append(record)
         return upcoming_birthdays
 
+    def save_to_file(self, filename="addressbook.pkl"):
+        with open(filename, "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load_from_file(cls, filename="addressbook.pkl"):
+        try:
+            with open(filename, "rb") as f:
+                return pickle.load(f)
+        except FileNotFoundError:
+            return cls()
+
 
 def parse_input(user_input):
     return user_input.strip().split()
 
 
 def input_error(func):
-    def wrapper(*args, **kwargs):
+    def inner(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except ValueError as e:
-            print(e)
-    return wrapper
+            return str(e)
+        except KeyError:
+            return "Контакт не знайдено"
+        except IndexError:
+            return "Вкажіть аргумент для команди"
 
+    return inner
 
 @input_error
 def add_contact(args, book):
+    if len(args) < 2:
+        raise ValueError("Not enough values to add contact. Usage: add <name> <phone>")
     name, phone = args[:2]
     record = book.find(name)
     message = "Contact updated."
@@ -105,6 +124,8 @@ def add_contact(args, book):
 
 @input_error
 def change_phone(args, book):
+    if len(args) < 2:
+        raise ValueError("Not enough values to change phone. Usage: change <name> <phone>")
     name, phone = args
     record = book.find(name)
     if record:
@@ -116,21 +137,26 @@ def change_phone(args, book):
 
 @input_error
 def show_phone(args, book):
+    if len(args) < 1:
+        raise ValueError("Not enough values to show phone. Usage: phone <name>")
     name = args[0]
     record = book.find(name)
     if record:
-        return f"Phone number: {', '.join(str(p) for p in record.phones)}"
+        phones = ', '.join(str(p) for p in record.phones)
+        return f"Phone number: {phones}" if phones else "No phone numbers found."
     else:
         return "Contact not found."
 
-
 @input_error
 def show_all(book):
-    return "\n".join(str(record) for record in book.values())
+    records_info = "\n".join(str(record) for record in book.values())
+    return records_info if records_info else "No contacts found."
 
 
 @input_error
 def add_birthday(args, book):
+    if len(args) < 2:
+        raise ValueError("Not enough values to add birthday. Usage: add-birthday <name> <birthday>")
     name, birthday = args
     record = book.find(name)
     if record:
@@ -142,12 +168,15 @@ def add_birthday(args, book):
 
 @input_error
 def show_birthday(args, book):
+    if len(args) < 1:
+        raise ValueError("Not enough values to show birthday. Usage: show-birthday <name>")
     name = args[0]
     record = book.find(name)
-    if record and record.birthday:
-        return f"Birthday: {record.birthday}"
-    elif record:
-        return "Birthday not set."
+    if record:
+        if record.birthday:
+            return f"Birthday: {record.birthday}"
+        else:
+            return "Birthday not set."
     else:
         return "Contact not found."
 
@@ -160,30 +189,19 @@ def birthdays(book):
     else:
         return "No upcoming birthdays."
 
-
-def save_data(book, filename="addressbook.pkl"):
-    with open(filename, "wb") as f:
-        pickle.dump(book, f)
-
-def load_data(filename="addressbook.pkl"):
-    try:
-        with open(filename, "rb") as f:
-            return pickle.load(f)
-    except FileNotFoundError:
-        return AddressBook()  # Повернення нової адресної книги, якщо файл не знайдено
-
-
 def main():
-    book = load_data()
-
+    book = AddressBook.load_from_file()
     print("Welcome to the assistant bot!")
     while True:
         user_input = input("Enter a command: ")
+        if not user_input:  # Додали перевірку на пустий ввід
+            print("Please enter a command.")
+            continue
         command, *args = parse_input(user_input)
 
         if command in ["close", "exit"]:
-            save_data(book)
             print("Good bye!")
+            book.save_to_file()
             break
 
         elif command == "hello":
