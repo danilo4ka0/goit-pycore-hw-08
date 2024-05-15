@@ -89,22 +89,24 @@ class AddressBook(dict):
         except FileNotFoundError:
             return cls()
 
-
 def parse_input(user_input):
-    return user_input.strip().split()
-
+    if not user_input.strip():
+        return "", []  # Повертає порожню команду та порожній список аргументів
+    return user_input.strip().split(maxsplit=1)  # Максимально 1 розділювач для правильного розбиття на команду та аргументи
 
 def input_error(func):
     def inner(*args, **kwargs):
         try:
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            if result is None:
+                return "Operation unsuccessful."
+            return result
         except ValueError as e:
             return str(e)
         except KeyError:
             return "Контакт не знайдено"
         except IndexError:
             return "Вкажіть аргумент для команди"
-
     return inner
 
 @input_error
